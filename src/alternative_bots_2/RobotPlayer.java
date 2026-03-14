@@ -1,4 +1,4 @@
-package altbot2;
+package alternative_bots_2;
 
 import battlecode.common.*;
 import java.util.*;
@@ -92,7 +92,7 @@ public class RobotPlayer {
                 }
             }
         }
-        smartMove(rc);
+        BotUtils.smartMove(rc);
     }
 
     public static void runMopper(RobotController rc) throws GameActionException {
@@ -112,7 +112,7 @@ public class RobotPlayer {
                 return;
             }
         }
-        smartMove(rc);
+        BotUtils.smartMove(rc);
     }
 
     public static void runSplasher(RobotController rc) throws GameActionException {
@@ -125,25 +125,6 @@ public class RobotPlayer {
                 }
             }
         }
-        smartMove(rc);
-    }
-
-    private static void smartMove(RobotController rc) throws GameActionException {
-        if(!rc.isMovementReady()) return;
-
-        for (Direction dir : directions) {
-            MapLocation next = rc.getLocation().add(dir);
-            if(rc.canMove(dir) && !rc.senseMapInfo(next).getPaint().isAlly()) {
-                rc.move(dir);
-
-                if (rc.canAttack(rc.getLocation())) {
-                    rc.attack(rc.getLocation());
-                }
-                return;
-            }
-
-            Direction d = directions[rng.nextInt(8)];
-            if(rc.canMove(d)) rc.move(d);
-        }
+        BotUtils.smartMove(rc);
     }
 }

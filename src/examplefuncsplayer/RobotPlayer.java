@@ -2,12 +2,7 @@ package examplefuncsplayer;
 
 import battlecode.common.*;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 
 /**
@@ -50,7 +45,6 @@ public class RobotPlayer {
      * @param rc  The RobotController object. You use it to perform actions from this robot, and to get
      *            information on its current status. Essentially your portal to interacting with the world.
      **/
-    @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         // Hello world! Standard output is very useful for debugging.
         // Everything you say here will be directly viewable in your terminal when you run a match!
@@ -133,7 +127,6 @@ public class RobotPlayer {
             System.out.println("Tower received message: '#" + m.getSenderID() + " " + m.getBytes());
         }
 
-        // TODO: can we attack other bots?
     }
 
 
@@ -179,11 +172,11 @@ public class RobotPlayer {
         }
 
         // Move and attack randomly if no objective.
-        Direction dir = directions[rng.nextInt(directions.length)];
-        MapLocation nextLoc = rc.getLocation().add(dir);
-        if (rc.canMove(dir)){
-            rc.move(dir);
-        }
+        // Direction dir = directions[rng.nextInt(directions.length)];
+        // MapLocation nextLoc = rc.getLocation().add(dir);
+        // if (rc.canMove(dir)){
+        //     rc.move(dir);
+        // }
         // Try to paint beneath us as we walk to avoid paint penalties.
         // Avoiding wasting paint by re-painting our own tiles.
         MapInfo currentTile = rc.senseMapInfo(rc.getLocation());

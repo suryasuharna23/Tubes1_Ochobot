@@ -2,12 +2,7 @@ package alternative_bots_1;
 
 import battlecode.common.*;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 
 /**
@@ -50,7 +45,6 @@ public class RobotPlayer {
      * @param rc  The RobotController object. You use it to perform actions from this robot, and to get
      *            information on its current status. Essentially your portal to interacting with the world.
      **/
-    @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         // Hello world! Standard output is very useful for debugging.
         // Everything you say here will be directly viewable in your terminal when you run a match!
@@ -292,7 +286,7 @@ public class RobotPlayer {
         }
         
         // We can also move our code into different methods or classes to better organize it!
-        // updateEnemyRobots(rc);
+        // BotUtils.updateEnemyRobots(rc);
     }
 
     public static void runSplasher(RobotController rc) throws GameActionException{
@@ -357,27 +351,4 @@ public class RobotPlayer {
             }
     }
 
-    public static void updateEnemyRobots(RobotController rc) throws GameActionException{
-        // Sensing methods can be passed in a radius of -1 to automatically 
-        // use the largest possible value.
-        // Untuk mendeteksi musuh di sekitar dan mengirimkan pesan ke teman jika ada ancaman
-        RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        if (enemyRobots.length != 0){
-            rc.setIndicatorString("There are nearby enemy robots! Scary! AAAA");
-            // Save an array of locations with enemy robots in them for possible future use.
-            MapLocation[] enemyLocations = new MapLocation[enemyRobots.length];
-            for (int i = 0; i < enemyRobots.length; i++){
-                enemyLocations[i] = enemyRobots[i].getLocation();
-            }
-            RobotInfo[] allyRobots = rc.senseNearbyRobots(-1, rc.getTeam());
-            // Occasionally try to tell nearby allies how many enemy robots we see.
-            if (rc.getRoundNum() % 20 == 0){
-                for (RobotInfo ally : allyRobots){
-                    if (rc.canSendMessage(ally.location, enemyRobots.length)){
-                        rc.sendMessage(ally.location, enemyRobots.length);
-                    }
-                }
-            }
-        }
-    }
 }
