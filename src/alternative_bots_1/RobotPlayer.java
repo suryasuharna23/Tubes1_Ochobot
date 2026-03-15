@@ -105,42 +105,22 @@ public class RobotPlayer {
     public static void runTower(RobotController rc) throws GameActionException{
         // Pick a direction to build in.
         // Perintah-perintah dan mengatur perilaku Tower
-        Direction buildDir = null;
-        for (Direction d : directions) {
-            if (rc.canBuildRobot(UnitType.SOLDIER, rc.getLocation().add(d))) {
-                buildDir = d;
-                break;
-            }
+        int currentPaint = rc.getPaint();
+        UnitType targetType = UnitType.SOLDIER;
+
+        if (currentPaint < 100) {
+            targetType = UnitType.MOPPER;
+        }
+        else if (currentPaint > 350) {
+            targetType = UnitType.SPLASHER;
         }
 
-        if (buildDir != null){
-            MapLocation buildLoc = rc.getLocation().add(buildDir);
-            int currentPaint = rc.getPaint();
-
-            if (currentPaint < 100){
-                if (rc.canBuildRobot(UnitType.MOPPER, buildLoc)) {
-                    rc.buildRobot(UnitType.MOPPER, buildLoc);
-                    System.out.println("BUILT A MOPPER");
-                }
-            }
-            else if (currentPaint > 300){
-                if (rc.canBuildRobot(UnitType.SPLASHER, buildLoc)) {
-                    rc.buildRobot(UnitType.SPLASHER, buildLoc);
-                    System.out.println("BUILT A SPLASHER");
-                }
-            }
-            else{
-                if (rc.canBuildRobot(UnitType.SOLDIER, buildLoc)) {
-                    rc.buildRobot(UnitType.SOLDIER, buildLoc);
-                    System.out.println("BUILT A SOLDIER");
-                }
-            }
-
-            RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-            if (enemies.length > 0) {
-                if (rc.canAttack(enemies[0].getLocation())) {
-                    rc.attack(enemies[0].getLocation());
-                }
+        for (Direction d : directions) {
+            MapLocation buildLoc = rc.getLocation().add(d);
+            if (rc.canBuildRobot(targetType, buildLoc)) {
+                rc.buildRobot(targetType, buildLoc);
+                System.out.println("BUILT A " + targetType);
+                break;
             }
         }
 
@@ -178,9 +158,7 @@ public class RobotPlayer {
 
         if (targetTowerLoc != null) {
             Direction dir = myLoc.directionTo(targetTowerLoc);
-            if (rc.canMove(dir)) {
-                rc.move(dir);
-            }
+            tryMove(rc, dir);
             
             if (rc.canAttack(targetTowerLoc)) {
                 rc.attack(targetTowerLoc);
@@ -188,16 +166,13 @@ public class RobotPlayer {
         } 
         else if (enemies.length > 0) {
             Direction dir = myLoc.directionTo(enemies[0].getLocation());
-            if (rc.canMove(dir)) {
-                rc.move(dir);
-            }
+            tryMove(rc, dir);
         }
         else {
             for (MapInfo tile : nearbyTiles) {
                 if (tile.getPaint().isEnemy()) {
                     Direction dir = myLoc.directionTo(tile.getMapLocation());
-                    if (rc.canMove(dir)) {
-                        rc.move(dir);
+                    if (tryMove(rc, dir)) {
                         break;
                     }
                 }
@@ -215,11 +190,16 @@ public class RobotPlayer {
             System.out.println("Robot #" + rc.getID() + " terima pesan dari #" + m.getSenderID() + ": " + m.getBytes());
             if (enemies.length == 0 && targetTowerLoc == null) {
                 Direction randomPossibleDir = directions[rng.nextInt(directions.length)];
-                if (rc.canMove(randomPossibleDir)) {
-                    rc.move(randomPossibleDir);
+                if (tryMove(rc, randomPossibleDir)) {
                     rc.setIndicatorString("Searching detected enemys..!");
                 }
             }
+        }
+
+        if (rc.isMovementReady()) {
+            Direction randomDir = directions[rng.nextInt(directions.length)];
+            tryMove(rc, randomDir);
+            rc.setIndicatorString("Mencari area baru!");
         }
 
     }
@@ -260,9 +240,7 @@ public class RobotPlayer {
 
         if (enemyLoc != null) {
             Direction dir = myLoc.directionTo(enemyLoc);
-            if (rc.canMove(dir)) {
-                rc.move(dir);
-            }
+            tryMove(rc, dir);
         }
 
         boolean acted = false;
@@ -283,6 +261,12 @@ public class RobotPlayer {
                     }
                 }
             }
+        }
+
+        if (rc.isMovementReady()) {
+            Direction randomDir = directions[rng.nextInt(directions.length)];
+            tryMove(rc, randomDir);
+            rc.setIndicatorString("Mencari area baru!");
         }
         
         // We can also move our code into different methods or classes to better organize it!
@@ -314,8 +298,8 @@ public class RobotPlayer {
                 if (myLoc.isAdjacentTo(closestTower) || myLoc.equals(closestTower)) {
                     rc.setIndicatorString("Refilling paint..");
                 } 
-                else if (rc.canMove(toTower)) {
-                    rc.move(toTower);
+                else {
+                    tryMove(rc, toTower);
                 }
                 return;
             }
@@ -324,17 +308,14 @@ public class RobotPlayer {
          // enemyLoc sebagai penanda robot musuh atau petak musuh
         if (enemies.length > 0) {
             Direction away = enemies[0].getLocation().directionTo(myLoc);
-            if (rc.canMove(away)){
-                rc.move(away);
-            }
+            tryMove(rc, away);
         }
         else{
             for (MapInfo tile : nearbyTiles) {
                 if (tile.getPaint() == PaintType.EMPTY) {
                     // emptyTile itu not occupied oleh tim manapun
                     Direction emptyTile = myLoc.directionTo(tile.getMapLocation());
-                    if (rc.canMove(emptyTile)){
-                        rc.move(emptyTile);
+                    if (tryMove(rc, emptyTile)){
                         break;
                     }
                 }
@@ -349,6 +330,36 @@ public class RobotPlayer {
                     }
                 }
             }
+        
+        if (rc.isMovementReady()) {
+            Direction randomDir = directions[rng.nextInt(directions.length)];
+            tryMove(rc, randomDir);
+            rc.setIndicatorString("Mencari area baru!");
+        }
+    }
+
+    public static boolean tryMove(RobotController rc, Direction dir) throws GameActionException {
+        if (rc.isMovementReady()) {
+            Direction[] tryDirs = {dir, dir.rotateLeft(), dir.rotateRight()};
+            for (Direction d : tryDirs) {
+                if (rc.canMove(d)) {
+                    MapInfo nextTile = rc.senseMapInfo(rc.getLocation().add(d));
+                    if (rc.getType() != UnitType.MOPPER && nextTile.getPaint().isEnemy()) {
+                        continue;
+                    }
+                    rc.move(d);
+                    return true;
+                }
+            }
+            
+            for (Direction d : tryDirs) {
+                if (rc.canMove(d)) {
+                    rc.move(d);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
 }
