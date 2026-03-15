@@ -26,6 +26,10 @@ public class SoldierLogic {
 	}
 
 	public static void buildTowerAtRuin(RobotController rc, MapLocation ruinLoc) throws GameActionException {
+		if (RobotPlayer.towerBuiltCount >= RobotPlayer.MAX_TOWERS) {
+			return;
+		}
+
 		UnitType towerType = RobotPlayer.towerBuiltCount % 2 == 0
 			? UnitType.LEVEL_ONE_PAINT_TOWER
 			: UnitType.LEVEL_ONE_MONEY_TOWER;

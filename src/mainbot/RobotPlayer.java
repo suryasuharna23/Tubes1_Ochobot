@@ -14,6 +14,8 @@ public class RobotPlayer {
     static final double RUIN_BASE_SCORE = 100.0;
     static final int PATROL_RADIUS_SQ = 16;
     static final int LOW_PAINT_THRESHOLD = 30;
+    static final int MAX_TOWERS = 25;
+    static final int TOWER_UPGRADE_CHIPS_THRESHOLD = 2500;
 
     // inisiasi trackers
     static int towerBuiltCount = 0;
@@ -48,6 +50,8 @@ public class RobotPlayer {
 
     // Tower Code
     public static void runTower(RobotController rc) throws GameActionException{
+        Message[] towerMsgs = rc.readMessages(-1);
+
         if (!rc.isActionReady()){
             TowerLogic.attackNearbyEnemies(rc);
             return;
@@ -71,16 +75,69 @@ public class RobotPlayer {
             rc.buildRobot(UnitType.SOLDIER, spawnLoc);
             unitSpawnCount++; // unitSpawnCount mod 3 = spawn Soldier tiap 3 spawn
         }
+
+        if (towerMsgs.length == 0 && (rc.getRoundNum() % 10 == 0)) {
+            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+            for (int i = 0; i < allies.length; i++) {
+                if (!allies[i].type.isTowerType() && rc.canSendMessage(allies[i].location, rc.getRoundNum())) {
+                    rc.sendMessage(allies[i].location, rc.getRoundNum());
+                    break;
+                }
+            }
+        }
+
         TowerLogic.attackNearbyEnemies(rc);
     }
     
 
     // Soldier Code
     public static void runSoldier(RobotController rc) throws GameActionException{
+        Message[] messages = rc.readMessages(-1);
+
+        if (rc.getPaint() == 0 && rc.getHealth() <= 20 && rc.getRoundNum() > 100) {
+            rc.disintegrate();
+            return;
+        }
+
+        if (rc.isActionReady() && rc.getPaint() < LOW_PAINT_THRESHOLD) {
+            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+            for (int i = 0; i < allies.length; i++) {
+                if (allies[i].type.isTowerType() && rc.canTransferPaint(allies[i].location, -40)) {
+                    rc.transferPaint(allies[i].location, -40);
+                    break;
+                }
+            }
+        } 
+
         MapLocation myLoc = rc.getLocation();
         MapInfo[] nearbyTiles = rc.senseNearbyMapInfos();
         MapLocation paintTarget = SplasherLogic.findUnpaintedArea(rc, nearbyTiles);
         MapLocation targetRuin = SoldierLogic.findBestRuin(rc, nearbyTiles);
+
+        if (rc.getRoundNum() % 12 == 0 && rc.canMarkResourcePattern(myLoc)) {
+            rc.markResourcePattern(myLoc);
+        }
+
+        MapInfo myTile = rc.senseMapInfo(myLoc);
+        if (myTile.isPassable() && !myTile.hasRuin()) {
+            if (myTile.getPaint() == PaintType.EMPTY && myTile.getMark() == PaintType.EMPTY) {
+                rc.mark(myLoc, false);
+            } else if (myTile.getPaint().isAlly() && myTile.getMark().isAlly()) {
+                rc.removeMark(myLoc);
+            }
+        }
+
+        if (messages.length > 0) {
+            rc.setIndicatorString("Soldier recv=" + messages.length);
+        }
+
+        if ((rc.getRoundNum() % 10 == 0) && targetRuin != null) {
+            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+            MapLocation nearestTower = BotUtils.findNearestAllyTower(rc, allies);
+            if (nearestTower != null && rc.canSendMessage(nearestTower, targetRuin.x * 100 + targetRuin.y)) {
+                rc.sendMessage(nearestTower, targetRuin.x * 100 + targetRuin.y);
+            } 
+        }
 
         if (paintTarget != null) {
             if (targetRuin != null && myLoc.distanceSquaredTo(targetRuin)<=BUILD_RADIUS_SQ
@@ -106,6 +163,17 @@ public class RobotPlayer {
                 BotUtils.moveTowards(rc, targetRuin);
             }
         } else {
+            if (rc.isActionReady()
+                && rc.getChips() >= TOWER_UPGRADE_CHIPS_THRESHOLD
+                && (rc.getRoundNum() % 6 == 0)) {
+                for (int i = 0; i < BotUtils.DIRECTIONS.length; i++) {
+                    MapLocation adj = myLoc.add(BotUtils.DIRECTIONS[i]);
+                    if (rc.canUpgradeTower(adj)) {
+                        rc.upgradeTower(adj);
+                        return;
+                    }
+                }
+            }
             SoldierLogic.exploreForRuins(rc, nearbyTiles);
         }
 
@@ -114,7 +182,28 @@ public class RobotPlayer {
 
     // Mopper Code
     public static void runMopper(RobotController rc) throws GameActionException {
+        Message[] messages = rc.readMessages(-1);
+
+        if (rc.isActionReady() && rc.getPaint() > 80) {
+            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+            for (int i = 0; i < allies.length; i++) {
+                if (!allies[i].type.isTowerType() && allies[i].paintAmount < 40 && rc.canTransferPaint(allies[i].location, 20)) {
+                    rc.transferPaint(allies[i].location, 20);
+                    return;
+                }
+            }
+        }
+
         if (rc.getPaint() < LOW_PAINT_THRESHOLD){
+            if (rc.isActionReady()) {
+                RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+                for (int i = 0; i < allies.length; i++) {
+                    if (allies[i].type.isTowerType() && rc.canTransferPaint(allies[i].location, -40)) {
+                        rc.transferPaint(allies[i].location, -40);
+                        return;
+                    }
+                }
+            }
             MopperLogic.retreatForPaint(rc); // jika paint rendah, mundur untuk mengisi ulang
             return;
         }
@@ -146,11 +235,27 @@ public class RobotPlayer {
             return;
         }
 
+        if (messages.length > 0) {
+            rc.setIndicatorString("Mopper recv=" + messages.length);
+        }
+
         MopperLogic.patrolAroundTower(rc, myTower);
     }
 
     // Splasher Code
     public static void runSplasher(RobotController rc) throws GameActionException {
+        Message[] messages = rc.readMessages(-1);
+
+        if (rc.isActionReady() && rc.getPaint() < LOW_PAINT_THRESHOLD) {
+            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+            for (int i = 0; i < allies.length; i++) {
+                if (allies[i].type.isTowerType() && rc.canTransferPaint(allies[i].location, -30)) {
+                    rc.transferPaint(allies[i].location, -30);
+                    break;
+                }
+            }
+        }
+
         MapInfo[] nearbyTiles = rc.senseNearbyMapInfos();
 
         MapLocation greedyPaint = SplasherLogic.findUnpaintedArea(rc, nearbyTiles);
@@ -202,6 +307,11 @@ public class RobotPlayer {
                 SoldierLogic.exploreForRuins(rc, nearbyTiles);
             }
         }
+
+        if (messages.length > 0) {
+            rc.setIndicatorString("Splasher recv=" + messages.length);
+        }
+
         BotUtils.paintCurrentTile(rc);
     }
 
