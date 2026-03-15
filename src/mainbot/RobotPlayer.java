@@ -95,7 +95,7 @@ public class RobotPlayer {
         Message[] messages = rc.readMessages(-1);
 
         if (rc.getPaint() == 0 && rc.getHealth() <= 20 && rc.getRoundNum() > 100) {
-            rc.disintegrate();
+            rc.disintegrate(); // jika paint habis dan health rendah, lebih baik mati daripada jadi beban untuk tim, terutama di late game
             return;
         }
 
@@ -115,7 +115,7 @@ public class RobotPlayer {
         MapLocation targetRuin = SoldierLogic.findBestRuin(rc, nearbyTiles);
 
         if (rc.getRoundNum() % 12 == 0 && rc.canMarkResourcePattern(myLoc)) {
-            rc.markResourcePattern(myLoc);
+            rc.markResourcePattern(myLoc); 
         }
 
         MapInfo myTile = rc.senseMapInfo(myLoc);
