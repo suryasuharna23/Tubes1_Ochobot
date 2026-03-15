@@ -40,22 +40,24 @@ public class SplasherLogic {
 	
 	public static MapLocation findUnpaintedArea(RobotController rc, MapInfo[] tiles) {
 		MapLocation best = null;
-		int maxC = 0;
+		int bestScore = Integer.MIN_VALUE;
+		MapLocation myLoc = rc.getLocation();
 		
 		for (int i = 0; i < tiles.length; i++) {
-			if (tiles[i].getPaint() == PaintType.EMPTY && !tiles[i].hasRuin() && tiles[i].isPassable()) {
+			if ((tiles[i].getPaint() == PaintType.EMPTY || tiles[i].getPaint().isEnemy()) && !tiles[i].hasRuin() && tiles[i].isPassable()) {
 				MapLocation tLoc = tiles[i].getMapLocation();
+				int score = tiles[i].getPaint().isEnemy() ? 120 : 60;
+				int d = myLoc.distanceSquaredTo(tLoc);
+
+				// imp bytecode O(n): enemy paint > empty, penalti jarak biar ttp efisien.
+				score -= d;
 				if (rc.canAttack(tLoc)) {
-					int c = 0;
-					for (int j = 0; j < tiles.length; j++) {
-						if (tiles[j].getPaint() == PaintType.EMPTY && tiles[j].getMapLocation().distanceSquaredTo(tLoc) <= 2) {
-							c++;
-						}
-					}
-					if (c > maxC) {
-						maxC = c;
-						best = tLoc;
-					}
+					score += 20;
+				}
+
+				if (score > bestScore) {
+					bestScore = score;
+					best = tLoc;
 				}
 			}
 		}

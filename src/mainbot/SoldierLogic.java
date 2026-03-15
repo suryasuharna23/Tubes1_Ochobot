@@ -5,7 +5,7 @@ import battlecode.common.*;
 public class SoldierLogic {
 	public static MapLocation findBestRuin(RobotController rc, MapInfo[] tiles) throws GameActionException {
 		MapLocation bestRuin = null;
-		double maxScore = -1.0;
+		int bestDist = Integer.MAX_VALUE;
 		MapLocation myLoc = rc.getLocation();
 
 		for (int i = 0; i < tiles.length; i++) {
@@ -16,12 +16,10 @@ public class SoldierLogic {
 			RobotInfo bot = rc.senseRobotAtLocation(ruinLoc);
 			if (bot != null && bot.type.isTowerType()) continue; // skip jika ada tower di lokasi ruin
 
-			double distance = Math.sqrt(myLoc.distanceSquaredTo(ruinLoc));
-			double score = RobotPlayer.RUIN_BASE_SCORE / Math.max(0.1, distance); // hindari pembagian dengan nol
-
-			if (score > maxScore) {
-				maxScore = score;
-				bestRuin = ruinLoc;
+			int d2 = myLoc.distanceSquaredTo(ruinLoc); // priortas ruin terdekat
+			if (d2<bestDist) {
+				bestDist=d2;
+				bestRuin=ruinLoc;
 			}
 		}
 		return bestRuin;
@@ -53,7 +51,6 @@ public class SoldierLogic {
 		if (rc.canCompleteTowerPattern(towerType, ruinLoc)) {
 			rc.completeTowerPattern(towerType, ruinLoc);
 			RobotPlayer.towerBuiltCount++;
-			System.out.println("Tower created");
 		}
 	}
 
@@ -64,7 +61,7 @@ public class SoldierLogic {
 		int maxEmpty = 0;
 
 		for (int i = 0; i < BotUtils.DIRECTIONS.length; i++) {
-			if (rc.canMove(BotUtils.DIRECTIONS[i])) continue;
+			if (!rc.canMove(BotUtils.DIRECTIONS[i])) continue;
 
 			MapLocation nextLoc = rc.getLocation().add(BotUtils.DIRECTIONS[i]);
 			int emptyCount = 0;

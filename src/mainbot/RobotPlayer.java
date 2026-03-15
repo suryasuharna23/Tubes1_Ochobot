@@ -59,20 +59,17 @@ public class RobotPlayer {
         if (spawnLoc == null){
             TowerLogic.attackNearbyEnemies(rc);
             return;
-        } // jika spawnLoc null, berarti tidak ada lokasi yang cocok untuk spawn, jadi kita skip spawn dan fokus ke attack dan read message
+        } // jika spawnLoc null, berarti tidak ada lokasi yang cocok untuk spawn, jadi kita skip spawn dan fokus ke attack
 
-        if (rc.canBuildRobot(UnitType.SPLASHER, spawnLoc)){
+        if (unitSpawnCount > 0 && unitSpawnCount % 4 == 0 && rc.canBuildRobot(UnitType.MOPPER, spawnLoc)) {
+            rc.buildRobot(UnitType.MOPPER, spawnLoc);
+            unitSpawnCount++; // unitSpawnCount mod 4 = spawn Mopper tiap 4 spawn biar lebih seimbang  
+        } else if (rc.canBuildRobot(UnitType.SPLASHER, spawnLoc)){
             rc.buildRobot(UnitType.SPLASHER, spawnLoc);
             unitSpawnCount++;
-            System.out.println("Tower built SPLASHER at "+spawnLoc+" (Total spawned: "+unitSpawnCount+")");
-        } else if (rc.canBuildRobot(UnitType.SOLDIER, spawnLoc)){
+        } else if (unitSpawnCount % 3 == 0 && rc.canBuildRobot(UnitType.SOLDIER, spawnLoc)){
             rc.buildRobot(UnitType.SOLDIER, spawnLoc);
-            unitSpawnCount++;
-            System.out.println("Tower built SOLDIER at "+spawnLoc+" (Total spawned: "+unitSpawnCount+")");
-        } else if (unitSpawnCount%5 == 0 && rc.canBuildRobot(UnitType.MOPPER, spawnLoc)){
-            rc.buildRobot(UnitType.MOPPER, spawnLoc);
-            unitSpawnCount++;
-            System.out.println("Tower built MOPPER at "+spawnLoc+" (Total spawned: "+unitSpawnCount+")");
+            unitSpawnCount++; // unitSpawnCount mod 3 = spawn Soldier tiap 3 spawn
         }
         TowerLogic.attackNearbyEnemies(rc);
     }
@@ -81,10 +78,27 @@ public class RobotPlayer {
     // Soldier Code
     public static void runSoldier(RobotController rc) throws GameActionException{
         MapLocation myLoc = rc.getLocation();
-        MapInfo[] nearbyTiles = rc.senseNearbyMapInfos(); // untuk sensing tile di sekitar
+        MapInfo[] nearbyTiles = rc.senseNearbyMapInfos();
+        MapLocation paintTarget = SplasherLogic.findUnpaintedArea(rc, nearbyTiles);
         MapLocation targetRuin = SoldierLogic.findBestRuin(rc, nearbyTiles);
 
-        if (targetRuin!=null){
+        if (paintTarget != null) {
+            if (targetRuin != null && myLoc.distanceSquaredTo(targetRuin)<=BUILD_RADIUS_SQ
+                && rc.isActionReady() && !rc.canAttack(paintTarget)) {
+                SoldierLogic.buildTowerAtRuin(rc, targetRuin);
+                return;
+            }
+
+            if (rc.canAttack(paintTarget)) {
+                rc.attack(paintTarget);
+            } else {
+                BotUtils.moveTowards(rc, paintTarget);
+            }
+            BotUtils.paintCurrentTile(rc);
+            return;
+        }
+
+        if (targetRuin != null){
             int distance = myLoc.distanceSquaredTo(targetRuin);
             if (distance <= BUILD_RADIUS_SQ){
                 SoldierLogic.buildTowerAtRuin(rc, targetRuin);
@@ -94,6 +108,7 @@ public class RobotPlayer {
         } else {
             SoldierLogic.exploreForRuins(rc, nearbyTiles);
         }
+
         BotUtils.paintCurrentTile(rc);
     }
 
@@ -104,9 +119,12 @@ public class RobotPlayer {
             return;
         }
 
-        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
-        MapLocation myTower = BotUtils.findNearestAllyTower(rc, allies);
         MapInfo[] nearbyTiles = rc.senseNearbyMapInfos(); //
+        MapLocation myTower = null;
+        if ((rc.getRoundNum() & 1) == 0) {
+            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+            myTower = BotUtils.findNearestAllyTower(rc, allies);
+        }
         MapInfo enemyPaint = MopperLogic.findEnemyPaintNearBase(rc, nearbyTiles, myTower);
 
         if (enemyPaint != null){
@@ -121,35 +139,65 @@ public class RobotPlayer {
         }
 
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-    Direction swingDir = MopperLogic.findBestMopSwingDirection(rc, enemies); // swingDir = direction untuk nge-mop
+        Direction swingDir = MopperLogic.findBestMopSwingDirection(rc, enemies); // swingDir = direction untuk nge-mop
 
         if (swingDir != null && rc.canMopSwing(swingDir)){
             rc.mopSwing(swingDir);
             return;
         }
 
-        MopperLogic.patrolAroundTower(rc, myTower); // untuk menjaga area sekitar tower tetap bersih dari paint musuhh
+        MopperLogic.patrolAroundTower(rc, myTower);
     }
 
     // Splasher Code
     public static void runSplasher(RobotController rc) throws GameActionException {
         MapInfo[] nearbyTiles = rc.senseNearbyMapInfos();
-        MapLocation targetRuin = SplasherLogic.findRuinNeedingPaint(rc, nearbyTiles);
+
+        MapLocation greedyPaint = SplasherLogic.findUnpaintedArea(rc, nearbyTiles);
+        MapLocation targetRuin = null;
+        if ((rc.getRoundNum() & 1) == 0 || greedyPaint == null) {
+            targetRuin = SplasherLogic.findRuinNeedingPaint(rc, nearbyTiles);
+        } // ngecat dulu baru cari ruin yg butuh paint
+
+        if (greedyPaint != null && rc.canAttack(greedyPaint)) {
+            rc.attack(greedyPaint);
+            if (rc.isMovementReady() && (rc.getRoundNum() & 1) == 0) {
+                RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+                MapLocation nearestTower = BotUtils.findNearestAllyTower(rc, allies);
+                if (nearestTower != null && rc.getLocation().distanceSquaredTo(nearestTower) <= PATROL_RADIUS_SQ) {
+                    Direction outDir = nearestTower.directionTo(rc.getLocation());
+                    if (rc.canMove(outDir)) {
+                        rc.move(outDir);
+                    } else if (rc.canMove(outDir.rotateLeft())) {
+                        rc.move(outDir.rotateLeft());
+                    } else if (rc.canMove(outDir.rotateRight())) {
+                        rc.move(outDir.rotateRight());
+                    }
+                }
+            }
+            return;
+        }
         
         if (targetRuin != null) {
             if (rc.getLocation().distanceSquaredTo(targetRuin) <= SOLDIER_ATTACK_RADIUS_SQ) {
-                MapInfo tTile = SplasherLogic.findBestPaintTarget(rc, targetRuin);
-                if (tTile != null && rc.canAttack(tTile.getMapLocation())) {
-                    rc.attack(tTile.getMapLocation(), tTile.getMark() == PaintType.ALLY_SECONDARY);
+                boolean shouldScanRuinPattern = rc.isActionReady() && (((rc.getRoundNum() & 1) == 0) || greedyPaint == null);
+                if (shouldScanRuinPattern) {
+                    MapInfo tTile = SplasherLogic.findBestPaintTarget(rc, targetRuin);
+                    if (tTile != null) {
+                        rc.attack(tTile.getMapLocation(), tTile.getMark() == PaintType.ALLY_SECONDARY);
+                        return;
+                    }
+                }
+
+                if (greedyPaint != null) {
+                    BotUtils.moveTowards(rc, greedyPaint);
                 }
             } else {
                 BotUtils.moveTowards(rc, targetRuin);
             }
         } else {
-            MapLocation unpainted = SplasherLogic.findUnpaintedArea(rc, nearbyTiles);
-            if (unpainted != null) {
-                if (rc.canAttack(unpainted)) rc.attack(unpainted);
-                else BotUtils.moveTowards(rc, unpainted);
+            if (greedyPaint != null) {
+                BotUtils.moveTowards(rc, greedyPaint);
             } else {
                 SoldierLogic.exploreForRuins(rc, nearbyTiles);
             }

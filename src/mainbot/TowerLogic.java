@@ -11,8 +11,8 @@ public class TowerLogic {
 				if (!rc.senseMapInfo(loc).getPaint().isEnemy()) {
 					return loc;
 				}
-				if (best == null) {
-					best = loc;
+				if (best==null) {
+					best=loc;
 				}
 			}
 		}
@@ -24,7 +24,6 @@ public class TowerLogic {
 		for (int i = 0; i < enemies.length; i++) {
 			if (rc.canAttack(enemies[i].location)) {
 				rc.attack(enemies[i].location);
-				System.out.println("Tower attacked enemy at " + enemies[i].location);
 				break;
 			}
 		}
