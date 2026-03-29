@@ -5,7 +5,7 @@ Proyek ini berisi beberapa bot Battlecode berbasis Java dengan pendekatan algori
 
 ## Strategi Greedy Tiap Bot
 
-### 1. mainbot
+### 1. main_bot
 - **Soldier**: Prioritas utama mengecat area bernilai tertinggi (enemy/empty paint) dengan skor lokal, lalu membangun tower di ruin secara oportunistik jika posisi mendukung. Upgrade tower dijadikan fallback, bukan prioritas utama.
 - **Mopper**: Membersihkan enemy paint dengan prioritas area dekat tower sekutu (defensif), melakukan mop swing ke arah paling menguntungkan, serta transfer/withdraw paint sesuai kebutuhan tim.
 - **Splasher**: Mengecat target area secara greedy (nilai lokal tertinggi), membantu penyelesaian pola ruin saat relevan, dan menjaga persebaran unit agar tidak menumpuk di sekitar tower.
@@ -52,7 +52,7 @@ Proyek ini berisi beberapa bot Battlecode berbasis Java dengan pendekatan algori
 5. Masuk ke folder client:
    - `cd client`
 6. Jalankan Battlecode Client (exe):
-   - `./Stima Battle Client.exe`
+   - `./Stima Battle Client.exe` atau `& '.\Stima Battle Client.exe'`
 7. Kembali ke root proyek (opsional):
    - `cd ..`
 
